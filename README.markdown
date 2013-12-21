@@ -1,3 +1,22 @@
+## VGA DMD PyProcGame Fork
+
+A "VGA DMD" fork of PyProcGame.  Traditional DMD support has been 
+broken in favor of supporting 24-bit (RGB) frames with a resolution
+that may be set higher than 128x32 (256x128 has been used successfully,
+but the hardware requirements are non-trivial).
+
+NOTE: this relies on PyGame; it will not work with Pyglet.
+
+You will need to change your config.yaml to include the following lines:
+
+	use_virtual_dmd_only: True
+	dmd_grid_path: C:\P-ROC\shared\
+	dmd_dots_w: 128
+	dmd_dots_h: 32
+
+
+
+
 ## pyprocgame
 
 pyprocgame is a high-level pinball development framework for use with P-ROC (Pinball Remote Operations Controller).  It was written by Adam Preble and Gerry Stellenberg.  More information about P-ROC is available at [pinballcontrollers.com](http://pinballcontrollers.com/).  See the [pyprocgame site](http://pyprocgame.pindev.org/) for the full pyprocgame documentation.
