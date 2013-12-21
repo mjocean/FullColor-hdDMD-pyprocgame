@@ -69,8 +69,12 @@ class GameController(object):
 
 	logger = None
 	""":class:`Logger` object instance; instantiated in :meth:`__init__` with the logger name "game"."""
-	
-	def __init__(self, machine_type):
+
+	# MJO: Virtual DMD w/o h/w DMD
+	use_virtual_dmd_only = False
+	"""Setting this to true in the config.yaml enables a virtual DMD without physical DMD events going to the PROC"""
+
+	def __init__(self, machine_type): 
 		super(GameController, self).__init__()
 		self.logger = logging.getLogger('game')
 		self.machine_type = pinproc.normalize_machine_type(machine_type)
@@ -90,6 +94,7 @@ class GameController(object):
 		
 		If that key path does not exist then this method returns an instance of :class:`pinproc.PinPROC`.
 		"""
+		self.use_virtual_dmd_only = config.value_for_key_path('use_virtual_dmd_only', False)
 		klass_name = config.value_for_key_path('pinproc_class', 'pinproc.PinPROC')
 		klass = util.get_class(klass_name)
 		return klass(self.machine_type)
@@ -573,7 +578,11 @@ class GameController(object):
 		"""Called by :meth:`run_loop` once per cycle to get the events to process during
 		this cycle of the run loop.
 		"""
-		return self.proc.get_events()
+		events = []
+		events.extend(self.proc.get_events())
+		if(self.use_virtual_dmd_only is True):		# MJO: changed to support fake DMD w/o h/w DMD
+			events.extend(self.get_virtualDMDevents())
+		return events
 
 	def tick_virtual_drivers(self):
 		for coil in self.coils:
@@ -583,6 +592,20 @@ class GameController(object):
 		for led in self.leds:
 			led.tick()
 	
+	# MJO: added to support virtual DMD only (i.e., without hardware)	
+	last_dmd_event = 0
+	frames_per_second = 60
+	def get_virtualDMDevents(self):
+		""" Get all switch and DMD events since the last time this was called. """
+		events = []
+		now = time.time()
+		seconds_since_last_dmd_event = now - self.last_dmd_event
+		missed_dmd_events = min(int(seconds_since_last_dmd_event*float(self.frames_per_second)), 16)
+		if missed_dmd_events > 0:
+			self.last_dmd_event = now
+			events.extend([{'type':pinproc.EventTypeDMDFrameDisplayed, 'value':0}] * missed_dmd_events)
+		return events
+
 	def run_loop(self, min_seconds_per_cycle=None):
 		"""Called by the programmer to read and process switch events until interrupted."""
 		loops = 0
@@ -616,5 +639,9 @@ class GameController(object):
 			if loops != 0:
 				dt = time.time()-self.t0
 				print "\nOverall loop rate: %0.3fHz\n" % (loops/dt)
-
-
+				#unload OSC server
+				try:
+					self.osc.OSC_shutdown()
+				except:
+					pass
+					

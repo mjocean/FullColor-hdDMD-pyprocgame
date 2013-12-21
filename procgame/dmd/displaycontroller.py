@@ -29,7 +29,7 @@ class DisplayController(object):
 	
 	This list is initialized to contain only ``self.game.proc.dmd_draw``."""
 	
-	def __init__(self, game, width=128, height=32, message_font=None):
+	def __init__(self, game, width=192, height=96, message_font=None):
 		self.game = game
 		self.message_layer = None
 		self.width = width
@@ -39,8 +39,13 @@ class DisplayController(object):
 		# Do two updates to get the pump primed:
 		for x in range(2):
 			self.update()
-		self.frame_handlers.append(self.game.proc.dmd_draw)
-		
+		if(game.use_virtual_dmd_only is False):		# MJO: added to stop DMD events when no physical DMD is present 
+			print("using physical DMD, b/c use_virtual_dmd_only is " + str(game.use_virtual_dmd_only))
+			print("change via config.yaml --> use_virtual_dmd_only: True")
+			self.frame_handlers.append(self.game.proc.dmd_draw)
+		else:
+			print("Using a virtual DMD ONLY - no physical DMD output will be sent")
+			
 	def set_message(self, message, seconds):
 		if self.message_layer == None:
 			raise ValueError, "Message_font must be specified in constructor to enable message layer."

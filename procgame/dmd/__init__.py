@@ -1,12 +1,14 @@
 __all__ = [
+	'vgadmd',
 	'animation',
 	'displaycontroller',
 	'dmd',
 	'font',
 	'layers',
 	'markup',
-	'transitions',
+	'transitions'
 	]
+from vgadmd import *
 from dmd import *
 from animation import *
 from font import *

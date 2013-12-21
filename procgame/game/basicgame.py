@@ -32,21 +32,24 @@ class BasicGame(GameController):
 	desktop = None
 	
 	def __init__(self, machine_type):
+		# loading the desktop first allows the pygame code to use convert, because
+		# pygame will be loaded.
+		use_desktop = config.value_for_key_path(keypath='use_desktop', default=True)
+		if use_desktop: 
+			import procgame.desktop
+			from ..desktop import Desktop
+			self.desktop = Desktop()
+
 		super(BasicGame, self).__init__(machine_type)
 
 		self.aux_port = auxport.AuxPort(self)
 		if self.machine_type == pinproc.MachineTypeWPCAlphanumeric:
 			self.alpha_display = alphanumeric.AlphanumericDisplay(self.aux_port)
 		else:
-			self.dmd = DisplayController(self, width=128, height=32, message_font=font_named('Font07x5.dmd'))
+			self.dmd = DisplayController(self, width=192, height=96, message_font=font_named('Font07x5.dmd'))
 		self.score_display = ScoreDisplay(self, 0)
 
 		
-		use_desktop = config.value_for_key_path(keypath='use_desktop', default=True)
-		if use_desktop: 
-			import procgame.desktop
-			from ..desktop import Desktop
-			self.desktop = Desktop()
 
 		if self.dmd: self.dmd.frame_handlers.append(self.set_last_frame)
 

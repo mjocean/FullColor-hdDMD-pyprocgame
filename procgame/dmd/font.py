@@ -61,7 +61,7 @@ class Font(object):
 		self.bitmap = self.__anim.frames[0]
 		self.char_widths = []
 		for i in range(96):
-			self.char_widths += [self.__anim.frames[1].get_dot(i%self.__anim.width, i/self.__anim.width)]
+			self.char_widths += [self.__anim.frames[1].get_font_dot(i%self.__anim.width, i/self.__anim.width)]
 		return self
 	
 	def save(self, filename):
@@ -71,7 +71,7 @@ class Font(object):
 		out.height = self.__anim.height
 		out.frames = [self.bitmap, Frame(out.width, out.height)]
 		for i in range(96):
-			out.frames[1].set_dot(i%self.__anim.width, i/self.__anim.width, self.char_widths[i])
+			out.frames[1].set_font_dot(i%self.__anim.width, i/self.__anim.width, self.char_widths[i])
 		out.save(filename)
 		
 	def draw(self, frame, text, x, y):

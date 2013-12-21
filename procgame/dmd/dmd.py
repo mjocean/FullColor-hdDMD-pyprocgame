@@ -1,11 +1,13 @@
 import pinproc
 import time
 import os
+import pygame
+import pygame.locals
+from procgame.dmd import VgaDMD
 
-class Frame(pinproc.DMDBuffer):
+class Frame(object):
 	"""DMD frame/bitmap.
 	
-	Subclass of :class:`pinproc.DMDBuffer`.
 	"""
 	
 	width = 0
@@ -13,17 +15,52 @@ class Frame(pinproc.DMDBuffer):
 	height = 0
 	"""Height of the frame in dots."""
 	
+	pySurface = None
+	""" the pygame surface that backs the frame """
+
 	def __init__(self, width, height):
 		"""Initializes the frame to the given `width` and `height`."""
-		super(Frame, self).__init__(width, height)
+		# super(Frame, self).__init__(width, height)
 		self.width = width
 		self.height = height
+		self.pySurface = pygame.surface.Surface((width, height))
+		self.x_offset = 4 #bytes_per_pixel 
+		self.y_offset = self.width*4 # every y_offset Bytes is the next line
+		self.font_dots = []
 
 	def copy_rect(dst, dst_x, dst_y, src, src_x, src_y, width, height, op="copy"):
 		"""Static method which performs some type checking before calling :meth:`pinproc.DMDBuffer.copy_to_rect`."""
-		if not (issubclass(type(dst), pinproc.DMDBuffer) and issubclass(type(src), pinproc.DMDBuffer)):
-			raise ValueError, "Incorrect types"
-		src.copy_to_rect(dst, int(dst_x), int(dst_y), int(src_x), int(src_y), int(width), int(height), op)
+
+		src_rect = pygame.Rect(int(src_x),int(src_y),int(width),int(height))
+		dst_rect = pygame.Rect(int(dst_x),int(dst_y),int(width),int(height))
+
+		""" 1.8.0: BLEND_ADD, BLEND_SUB, BLEND_MULT, BLEND_MIN, BLEND_MAX 
+		 in 1.8.1: BLEND_RGBA_ADD, BLEND_RGBA_SUB, BLEND_RGBA_MULT, BLEND_RGBA_MIN, 
+					BLEND_RGBA_MAX BLEND_RGB_ADD, BLEND_RGB_SUB, BLEND_RGB_MULT, 
+					BLEND_RGB_MIN, BLEND_RGB_MAX 
+		"""
+		if (op=="copy"):
+			special_flags = 0
+		elif(op=="add"):
+			special_flags = pygame.BLEND_ADD
+		elif(op == "sub"):
+			special_flags = pygame.BLEND_SUB
+		elif(op == "blacksrc"):
+			special_flags = 0;
+			src.pySurface.set_colorkey((0,0,0))
+		elif(op == "alpha"):
+			special_flags = 0
+			# TODO: THIS...
+		elif(op == "alphaboth"):
+			special_flags = 0
+			# TODO: THIS...
+		else:
+			raise ValueError, "Operation type not recognized."
+
+		dst.pySurface.blit(src.pySurface, dst_rect, src_rect, special_flags = special_flags)
+		#src.copy_to_rect(dst, int(dst_x), int(dst_y), int(src_x), int(src_y), int(width), int(height), op)
+		src.pySurface.set_colorkey(None)
+
 	copy_rect = staticmethod(copy_rect)
 	
 	def subframe(self, x, y, width, height):
@@ -35,19 +72,21 @@ class Frame(pinproc.DMDBuffer):
 	def copy(self):
 		"""Returns a copy of itself."""
 		frame = Frame(self.width, self.height)
-		frame.set_data(self.get_data())
+		frame.pySurface = self.pySurface.copy()
+		#frame.set_data(self.get_data())
 		return frame
 	
 	def ascii(self):
 		"""Returns an ASCII representation of itself."""
-		output = ''
-		table = [' ', '.', '.', '.', ',', ',', ',', '-', '-', '=', '=', '=', '*', '*', '#', '#',]
-		for y in range(self.height):
-			for x in range(self.width):
-				dot = self.get_dot(x, y)
-				output += table[dot & 0xf]
-			output += "\n"
-		return output
+		# output = ''
+		# table = [' ', '.', '.', '.', ',', ',', ',', '-', '-', '=', '=', '=', '*', '*', '#', '#',]
+		# for y in range(self.height):
+		# 	for x in range(self.width):
+		# 		dot = self.get_dot(x, y)
+		# 		output += table[dot & 0xf]
+		# 	output += "\n"
+		# return output
+		raise ValueError, "Unsupported method Ascii"
 	
 	def create_with_text(lines, palette = {' ':0, '*':15}):
 		"""Create a frame based on text.
@@ -85,6 +124,84 @@ class Frame(pinproc.DMDBuffer):
 				frames += [new_frame]
 		return frames
 
+	def set_font_dot(self, x, y, color):
+	 	self.font_dots[x+(y*self.width)]=color
+
+	def get_font_dot(self, x, y):
+	 	return ord(self.font_dots[x+(y*self.width)])
+
+	def fill_rect(self, x,y,w,h,c):
+		r = pygame.Rect(int(x),int(y),int(w),int(h))
+		self.pySurface.fill(c,r)
+
+
+	def clear(self):
+		self.pySurface.fill((0,0,0))
+
+	def set_surface(self, surf):
+		try:
+			self.pySurface = surf.convert()
+		except Exception as e:
+			self.pySurface = surf
+		
+
+	def build_surface_from_8bit_dmd_string(self, str_data):
+		self.eight_to_RGB_map = VgaDMD.get_palette_ch()
+		self.font_dots = str_data
+		x = 0
+		y = 0
+		d = ""
+		for dot in str_data:
+			# get the Byte from the frame data
+			dot = ord(dot) 
+			# convert it to the correct RGB pallette color
+			(r,g,b) = self.eight_to_RGB_map[dot]
+
+			d +=r + g + b
+			# # write out the color into the target buffer array
+			# index = y*self.y_offset + x*self.x_offset
+
+			# #self.pySurface[index:(index+bytes_per_pixel)] = (b,g,r,0)
+			# buffer_interface[index:(index+4)] = (b,g,r,0)
+
+			# #move to the next dot
+			# x += 1
+			# if x == self.width:
+			# 	x = 0
+			# 	y += 1 
+		self.pySurface = pygame.image.fromstring(d,(self.width,self.height),'RGB').convert()
+			
+
+	def get_surface_string(self):
+		# convert every pixel to 8 bit mapping
+		return pygame.image.tostring(self.pySurface,'RGB')
+	#	#self.pySurface.get_buffer()
+
+	# def set_data(self, frame_string):
+	# 	ar = pygame.PixelArray(self.pySurface)
+	# 	ar = frame_string
+	# 	del ar
+		#self.pySurface = pygame.image.fromstring(frame_string,(self.width,self.height),'P')
+		
+		# x = 0
+		# y = 0
+		# for dot in frame_string:
+		# 	# get the Byte from the frame data
+		# 	dot = ord(dot) 
+		# 	# convert it to the correct RGB pallette color
+		# 	(r,g,b) = self.eight_to_RGB_map[dot]
+
+		# 	# write out the color into the target buffer array
+		# 	index = y*self.y_offset + x*self.x_offset
+
+		# 	#self.pySurface[index:(index+bytes_per_pixel)] = (b,g,r,0)
+		# 	self.pySurface[index:(index+4)] = (b,g,r,0)
+
+		# 	#move to the next dot
+		# 	x += 1
+		# 	if x == self.width:
+		# 		x = 0
+		# 		y += 1 
 
 
 class Layer(object):

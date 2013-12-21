@@ -144,7 +144,7 @@ class TextLayer(Layer):
 	fill_color = None
 	"""Dot value to fill the frame with.  Requres that ``width`` and ``height`` be set.  If ``None`` only the font characters will be drawn."""
 	
-	def __init__(self, x, y, font, justify="left", opaque=False, width=128, height=32, fill_color=None):
+	def __init__(self, x, y, font, justify="left", opaque=False, width=192, height=96, fill_color=None):
 		super(TextLayer, self).__init__(opaque)
 		self.x = x
 		self.y = y

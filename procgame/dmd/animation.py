@@ -7,9 +7,12 @@ import StringIO
 import time
 import Image
 from procgame.dmd import Frame
+from procgame.dmd import VgaDMD
 from procgame import config
 import logging
 import re
+import colorsys
+import pygame
 
 try:
 	import Image
@@ -201,16 +204,16 @@ class Animation(object):
 						self.populate_from_image_file(path, f)
 					
 			# Now use our normal save routine to get the DMD format data:
-			stringio = StringIO.StringIO()
-			self.save_to_dmd_file(stringio)
-			dmd_data = stringio.getvalue()
+			# stringio = StringIO.StringIO()
+			# self.save_to_dmd_file(stringio)
+			# dmd_data = stringio.getvalue()
 		
 			# Finally store the data in the cache:	
 			if animation_cache:
 				print "Storing in the cache: ", key_path
 				animation_cache.set_at_path(key_path, dmd_data)
 					
-			logger.debug('Loaded "%s" from disk in %0.3fs', key_path, time.time()-t0)
+			# print('Loaded "%s" from disk in %0.3fs', key_path, time.time()-t0)
 			
 		return self
 
@@ -221,8 +224,72 @@ class Animation(object):
 		with open(filename, 'wb') as f:
 			self.save_to_dmd_file(f)
 
+	def convertImage(src):
+
+		image = src.convert("RGB")
+		(w,h) = image.size
+
+		frame = Frame(w, h)
+		mode = image.mode
+		size = image.size
+		data = image.tostring()
+
+		#assert mode in 'RGB', 'RGBA'
+		surface = pygame.image.fromstring(data, size, mode)
+
+		frame.set_surface(surface)
+
+		return frame
+
+	convertImage = staticmethod(convertImage)
+
+
+	def convertImageToOldDMD(src):
+		pal_image= Image.new("P", (1,1))
+		tuplePal = VgaDMD.get_palette()
+		flatPal = [element for tupl in tuplePal for element in tupl]
+		pal_image.putpalette(flatPal)
+		src_rgb = src.convert("RGB").quantize(palette=pal_image)
+		src_p = src_rgb.convert("P")
+
+		(w,h) = src.size
+		frame = Frame(w, h)
+		for x in range(w):
+			for y in range(h):
+				color = src_p.getpixel((x,y))
+				# if(color > 0 and color < 8):
+				# 	# 0 is transparent; 1 to 7 are "reseved"
+				# 	# nothing should be assigning colors in this range...
+				# 	color = 0
+				frame.set_dot(x=x, y=y, value=color)
+		return frame
+	convertImageToOldDMD = staticmethod(convertImageToOldDMD)
 
 	def populate_from_image_file(self, path, f):
+		if not Image:
+			raise RuntimeError, 'Cannot open non-native image types without Python Imaging Library: %s' % (path)
+		
+		src = Image.open(f)
+
+		(w, h) = src.size
+		print ("conversion of image, sized " + str(w) + "," + str(h))
+
+		if len(self.frames) > 0 and (w != self.width or h != self.height):
+			raise ValueError, "Image sizes must be uniform!  Anim is %dx%d, image is %dx%d" % (w, h, self.width, self.height)
+
+		(self.width, self.height) = (w, h)
+
+		# I'm punting on animated gifs, because they're too slow.  If you coalesce them 
+		# via image magic then they are fast again.
+		if path.endswith('.gif'): 
+			from . import animgif
+			self.frames += animgif.gif_frames(src)
+		else:
+			frame = Animation.convertImage(src)
+
+			self.frames.append(frame)
+
+	def old_populate_from_image_file(self, path, f):
 		
 		if not Image:
 			raise RuntimeError, 'Cannot open non-native image types without Python Imaging Library: %s' % (path)
@@ -267,24 +334,49 @@ class Animation(object):
 	def populate_from_dmd_file(self, f):
 		f.seek(0, os.SEEK_END) # Go to the end of the file to get its length
 		file_length = f.tell()
-		f.seek(4) # Skip over the 4 byte DMD header.
+		## MJO: Don't just skip the header!  Check it.
+		
+		f.seek(0) # Skip over the 4 byte DMD header.
+		dmd_version = struct.unpack("I", f.read(4))[0]
+		dmd_style = 0 # old
+		if(dmd_version == 0x00646D64):
+			print("old dmd style")
+			pass
+		elif(dmd_version == 0x00DEFACE):
+			print("full color dmd style")
+			dmd_style = 1
 		frame_count = struct.unpack("I", f.read(4))[0]
 		self.width = struct.unpack("I", f.read(4))[0]
 		self.height = struct.unpack("I", f.read(4))[0]
-		if file_length != 16 + self.width * self.height * frame_count:
-			raise ValueError, "File size inconsistent with header information.  Old or incompatible file format?"
 		for frame_index in range(frame_count):
-			str_frame = f.read(self.width * self.height)
 			new_frame = Frame(self.width, self.height)
-			new_frame.set_data(str_frame)
+			if(dmd_style==0):
+				if file_length != 16 + self.width * self.height * frame_count:
+					print(f)
+					raise ValueError, "File size inconsistent with original DMD format header information.  Old or incompatible file format?"
+				str_frame = f.read(self.width * self.height)
+				new_frame.build_surface_from_8bit_dmd_string(str_frame)
+			elif(dmd_style==1):
+				if file_length != 16 + self.width * self.height * frame_count * 3:
+					print(f)
+					raise ValueError, "File size inconsistent with true-color DMD format header information.  Old or incompatible file format?"
+				str_frame = f.read(self.width * self.height * 3)
+				surface = pygame.image.fromstring(str_frame, (self.width, self.height), 'RGB')
+				new_frame.set_surface(surface)
 			self.frames.append(new_frame)
 
+	# def save_to_dmd_file(self, f):
+	# 	header = struct.pack("IIII", 0x00646D64, len(self.frames), self.width, self.height)
+	# 	if len(header) != 16:
+	# 		raise ValueError, "Packed size not 16 bytes as expected: %d" % (len(header))
+	# 	f.write(header)
+	# 	for frame in self.frames:
+	# 		f.write(frame.get_surface_string())
+
 	def save_to_dmd_file(self, f):
-		header = struct.pack("IIII", 0x00646D64, len(self.frames), self.width, self.height)
+		header = struct.pack("IIII", 0x00DEFACE, len(self.frames), self.width, self.height)
 		if len(header) != 16:
 			raise ValueError, "Packed size not 16 bytes as expected: %d" % (len(header))
 		f.write(header)
 		for frame in self.frames:
-			f.write(frame.get_data())
-
-
+			f.write(frame.get_surface_string())
