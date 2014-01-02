@@ -32,6 +32,8 @@ class Desktop():
 
 	dots_w = 128
 	dots_h = 32
+	screen_scale =2 # this is the factor to pygame scale the display.  192x96 (x6) = 1152x576
+
 
 	def __init__(self):
 		print 'Desktop init begun.'
@@ -41,24 +43,30 @@ class Desktop():
 		if 'pygame' in globals():
 			self.dots_w = config.value_for_key_path(keypath='dmd_dots_w', default=128)
 			self.dots_h = config.value_for_key_path(keypath='dmd_dots_h', default=32)
+			self.screen_scale = config.value_for_key_path(keypath='desktop_dmd_scale', default=2)
+			self.dot_filter = config.value_for_key_path(keypath='dmd_dot_filter', default=True)
+			self.fullscreen = config.value_for_key_path(keypath='dmd_fullscreen', default=False)			
 			self.setup_window()
 		else:
 			print 'Desktop init skipping setup_window(); pygame does not appear to be loaded.'
 
-		dmd_grid_path = config.value_for_key_path(keypath='dmd_grid_path', default='.')
-		
+		dmd_grid_path = config.value_for_key_path(keypath='dmd_grid_path', default='.')		
 		self.grid_image = pygame.surface.Surface((self.dots_w*10,self.dots_h*10),pygame.SRCALPHA)
 		r = pygame.Rect(0,0,self.dots_w*10,self.dots_h*10)
 		self.grid_image.fill((0,0,0,0),r)
-		grid_32x32segment = pygame.image.load(dmd_grid_path + 'dmdgrid32x32.png')
-		print("building a grid of " + str(self.dots_w) + "x" + str(self.dots_h))
-		for step_w in range(0,self.dots_w/32):
-			for step_h in range(0,self.dots_h/32):
-				print("--stamping at " + str(step_w) + "x" + str(step_h))
-				self.grid_image.blit(grid_32x32segment,(step_w*320,step_h*320))
-		#self.grid_image = pygame.image.load('./dmdgrid.png')
-		#self.grid_image = pygame.image.load('./dmdgrid256x128.png')
-		self.grid_image = pygame.transform.scale(self.grid_image, self.screen.get_size()).convert_alpha()
+
+		if(self.dot_filter==True):
+			grid_32x32segment = pygame.image.load(dmd_grid_path + 'dmdgrid32x32.png')
+			print("building a grid of " + str(self.dots_w) + "x" + str(self.dots_h))
+			for step_w in range(0,self.dots_w/32):
+				for step_h in range(0,self.dots_h/32):
+					# print("--stamping at " + str(step_w) + "x" + str(step_h))
+					self.grid_image.blit(grid_32x32segment,(step_w*320,step_h*320))
+			#self.grid_image = pygame.image.load('./dmdgrid.png')
+			#self.grid_image = pygame.image.load('./dmdgrid256x128.png')
+			self.grid_image = pygame.transform.scale(self.grid_image, self.screen.get_size()).convert_alpha()
+		else:
+			self.draw = self.draw_no_dot_effect
 
 		self.add_key_map(pygame.locals.K_LSHIFT, 3)
 		self.add_key_map(pygame.locals.K_RSHIFT, 1)
@@ -112,8 +120,6 @@ class Desktop():
 	screen = None
 	""":class:`pygame.Surface` object representing the screen's surface."""
 
-	screen_scale =7 # this is the factor to pygame scale the display.  192x96 (x6) = 1152x576
-
 	# you'll need to change your displayController to width=192, height=96 and the same for all layers created
 
 	def setup_window(self):
@@ -121,7 +127,10 @@ class Desktop():
 		#self.screen = pygame.display.set_mode((128*self.screen_multiplier, 32*self.screen_multiplier))
 		# self.screen = pygame.display.set_mode((self.dots_w*self.screen_scale, self.dots_h*self.screen_scale),pygame.OPENGL|pygame.FULLSCREEN|pygame.DOUBLEBUF)
 		# self.screen = pygame.display.set_mode((self.dots_w*self.screen_scale, self.dots_h*self.screen_scale),pygame.HWPALETTE|pygame.FULLSCREEN|pygame.DOUBLEBUF)
-		self.screen = pygame.display.set_mode((self.dots_w*self.screen_scale, self.dots_h*self.screen_scale))
+		if(self.fullscreen==True):
+			self.screen = pygame.display.set_mode((self.dots_w*self.screen_scale, self.dots_h*self.screen_scale),pygame.HWPALETTE|pygame.FULLSCREEN|pygame.DOUBLEBUF)
+		else:
+			self.screen = pygame.display.set_mode((self.dots_w*self.screen_scale, self.dots_h*self.screen_scale))
 
 		print("****************")
 		print(pygame.display.Info())
@@ -149,7 +158,14 @@ class Desktop():
 
 		##pygame.display.update()
 		pygame.display.flip()
-	
+
+	def draw_no_dot_effect(self, frame):
+		"""Draw the given :class:`~procgame.dmd.Frame` in the window."""
+		self.scratch_surface.blit(frame.pySurface,(0,0))
+
+		pygame.transform.scale(self.scratch_surface, self.screen.get_size(), self.screen)
+
+		pygame.display.flip()	
 
 	def __str__(self):
 		return '<Desktop pygame>'

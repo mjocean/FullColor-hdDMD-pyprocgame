@@ -13,6 +13,7 @@ import logging
 import re
 import colorsys
 import pygame
+import zipfile
 
 try:
 	import Image
@@ -184,7 +185,9 @@ class Animation(object):
 				
 			# Iterate over the provided paths:
 			for path in paths:
-			
+				if (os.path.isfile(path.rstrip('.zip'))):
+					print("Using unzipped DMD for '" + path + "'")
+					path = path.rstrip('.zip')
 				with open(path, 'rb') as f:
 					# Opening from disk.  It may be a DMD, or it may be another format.
 					# We keep track of the DMD data representation so we can save it to
@@ -192,6 +195,10 @@ class Animation(object):
 					if path.endswith('.dmd'):
 						# Note: Right now we don't cache .dmd files.
 						self.populate_from_dmd_file(f)
+					elif path.endswith('.zip'):
+						z = zipfile.ZipFile(path, "r")
+						data = z.read(z.namelist()[0])    #Read in the first image data
+						self.populate_from_dmd_file(StringIO.StringIO(data))
 					else:
 						logger.info('Loading %s...', path) # Log for images...
 						global warned_cache_disabled
@@ -223,6 +230,13 @@ class Animation(object):
 			raise ValueError, "width and height must be set on Animation before it can be saved."
 		with open(filename, 'wb') as f:
 			self.save_to_dmd_file(f)
+
+	def save_old(self, filename):
+		"""Saves the animation as a 'traditional' (8bpp) .dmd file at the given location, `filename`."""
+		if self.width == None or self.height == None:
+			raise ValueError, "width and height must be set on Animation before it can be saved."
+		with open(filename, 'wb') as f:
+			self.save_to_old_dmd_file(f)
 
 	def convertImage(src):
 
@@ -257,10 +271,6 @@ class Animation(object):
 		for x in range(w):
 			for y in range(h):
 				color = src_p.getpixel((x,y))
-				# if(color > 0 and color < 8):
-				# 	# 0 is transparent; 1 to 7 are "reseved"
-				# 	# nothing should be assigning colors in this range...
-				# 	color = 0
 				frame.set_dot(x=x, y=y, value=color)
 		return frame
 	convertImageToOldDMD = staticmethod(convertImageToOldDMD)
@@ -340,38 +350,45 @@ class Animation(object):
 		dmd_version = struct.unpack("I", f.read(4))[0]
 		dmd_style = 0 # old
 		if(dmd_version == 0x00646D64):
-			print("old dmd style")
+			# print("old dmd style")
 			pass
 		elif(dmd_version == 0x00DEFACE):
-			print("full color dmd style")
+			# print("full color dmd style")
 			dmd_style = 1
+
 		frame_count = struct.unpack("I", f.read(4))[0]
 		self.width = struct.unpack("I", f.read(4))[0]
 		self.height = struct.unpack("I", f.read(4))[0]
+		if(dmd_style==0):
+			if file_length != 16 + self.width * self.height * frame_count:
+				print(f)
+				print("expected size = " + str(16 + self.width * self.height * frame_count) + " got " + str(file_length))
+				raise ValueError, "File size inconsistent with original DMD format header information.  Old or incompatible file format?"
+		elif(dmd_style==1):
+			if file_length != 16 + self.width * self.height * frame_count * 3:
+				print(f)
+				raise ValueError, "File size inconsistent with true-color DMD format header information. Old or incompatible file format?"
+
 		for frame_index in range(frame_count):
 			new_frame = Frame(self.width, self.height)
 			if(dmd_style==0):
-				if file_length != 16 + self.width * self.height * frame_count:
-					print(f)
-					raise ValueError, "File size inconsistent with original DMD format header information.  Old or incompatible file format?"
 				str_frame = f.read(self.width * self.height)
 				new_frame.build_surface_from_8bit_dmd_string(str_frame)
 			elif(dmd_style==1):
-				if file_length != 16 + self.width * self.height * frame_count * 3:
-					print(f)
-					raise ValueError, "File size inconsistent with true-color DMD format header information.  Old or incompatible file format?"
 				str_frame = f.read(self.width * self.height * 3)
 				surface = pygame.image.fromstring(str_frame, (self.width, self.height), 'RGB')
 				new_frame.set_surface(surface)
 			self.frames.append(new_frame)
-
-	# def save_to_dmd_file(self, f):
-	# 	header = struct.pack("IIII", 0x00646D64, len(self.frames), self.width, self.height)
-	# 	if len(header) != 16:
-	# 		raise ValueError, "Packed size not 16 bytes as expected: %d" % (len(header))
-	# 	f.write(header)
-	# 	for frame in self.frames:
-	# 		f.write(frame.get_surface_string())
+		
+	def save_to_old_dmd_file(self, f):
+		header = struct.pack("IIII", 0x00646D64, len(self.frames), self.width, self.height)
+		if len(header) != 16:
+			raise ValueError, "Packed size not 16 bytes as expected: %d" % (len(header))
+		f.write(header)
+		for frame in self.frames:
+			str1 = ''.join(str(e) for e in frame.font_dots)
+			print("font dots=[" + str1 + "]")
+			f.write(str1)
 
 	def save_to_dmd_file(self, f):
 		header = struct.pack("IIII", 0x00DEFACE, len(self.frames), self.width, self.height)

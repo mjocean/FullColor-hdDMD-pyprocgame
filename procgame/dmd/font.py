@@ -31,15 +31,15 @@ class Font(object):
 	composite_op = 'copy'
 	"""Composite operation used by :meth:`draw` when calling :meth:`~pinproc.DMDBuffer.copy_rect`."""
 	
-	def __init__(self, filename=None):
+	def __init__(self, filename=None, char_widths=None):
 		super(Font, self).__init__()
 		self.__anim = Animation()
 		self.char_size = None
 		self.bitmap = None
 		if filename != None:
-			self.load(filename)
+			self.load(filename, char_widths)
 		
-	def load(self, filename):
+	def load(self, filename, char_widths = None):
 		"""Loads the font from a ``.dmd`` file (see :meth:`Animation.load`).
 		Fonts are stored in .dmd files with frame 0 containing the bitmap data
 		and frame 1 containing the character widths.  96 characters (32..127,
@@ -60,8 +60,14 @@ class Font(object):
 		self.char_size = self.__anim.width / 10
 		self.bitmap = self.__anim.frames[0]
 		self.char_widths = []
-		for i in range(96):
-			self.char_widths += [self.__anim.frames[1].get_font_dot(i%self.__anim.width, i/self.__anim.width)]
+		if(char_widths==None):
+			for i in range(96):
+				self.char_widths += [self.__anim.frames[1].get_font_dot(i%self.__anim.width, i/self.__anim.width)]
+		else:
+			print("font widths provided")
+			self.char_widths = char_widths
+			# for i in range(96):
+			# 	self.__anim.frames[1].set_font_dot(i%self.__anim.width, i/self.__anim.width, self.char_widths[i])
 		return self
 	
 	def save(self, filename):
@@ -72,7 +78,7 @@ class Font(object):
 		out.frames = [self.bitmap, Frame(out.width, out.height)]
 		for i in range(96):
 			out.frames[1].set_font_dot(i%self.__anim.width, i/self.__anim.width, self.char_widths[i])
-		out.save(filename)
+		out.save_old(filename)
 		
 	def draw(self, frame, text, x, y):
 		"""Uses this font's characters to draw the given string at the given position."""

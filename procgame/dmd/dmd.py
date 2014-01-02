@@ -125,9 +125,15 @@ class Frame(object):
 		return frames
 
 	def set_font_dot(self, x, y, color):
-	 	self.font_dots[x+(y*self.width)]=color
+	 	#print("set_font_dot(" + str(x) + "," + str(y) + ")")
+	 	if(len(self.font_dots)<=(x+(y*self.width))):
+	 		self.font_dots.append(color)
+	 		assert(self.font_dots[x+(y*self.width)]==color)
+	 	else:
+		 	self.font_dots[x+(y*self.width)]=color
 
 	def get_font_dot(self, x, y):
+	 	#print("get_font_dot(" + str(x) + "," + str(y))
 	 	return ord(self.font_dots[x+(y*self.width)])
 
 	def fill_rect(self, x,y,w,h,c):
