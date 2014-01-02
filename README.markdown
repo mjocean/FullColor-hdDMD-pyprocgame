@@ -1,19 +1,32 @@
-## VGA DMD PyProcGame Fork
+## VGA hdDMD PyProcGame Fork
 
-A "VGA DMD" fork of PyProcGame.  Traditional DMD support has been 
-broken in favor of supporting 24-bit (RGB) frames with a resolution
-that may be set higher than 128x32 (256x128 has been used successfully,
-but the hardware requirements are non-trivial).
+A "VGA hdDMD" fork of PyProcGame.  Traditional DMD support has been 
+broken in favor of supporting LCD based DMD hardware; 24-bit (RGB) 
+frames with a resolution that may be set higher than 128x32: 
+256x128 has been used successfully with dotfilter; I'm using 480x240 
+currently, but the hardware requirements are non-trivial. You are 
+strongly recommended to turn off the dotfilter at resolutions higher than 
+256x256.
 
 NOTE: this relies on PyGame; it will not work with Pyglet.
 
+There are a few ways to pick up performance:
+Turn off the dot_filter, turn on the fullscreen, drop the scale factor, and/or
+drop the framerate (manually, in two files).
+
+You will need to put the dmdgrid32x32.png file somewhere, and that somewhere
+must be specified in the config.yaml file.
+
 You will need to change your config.yaml to include the following lines:
 
+	# all of this is for the hdDMD
 	use_virtual_dmd_only: True
 	dmd_grid_path: C:\P-ROC\shared\
-	dmd_dots_w: 128
-	dmd_dots_h: 32
-
+	dmd_dots_w: 480
+	dmd_dots_h: 240
+	dmd_dot_filter: False
+	dmd_fullscreen: False
+	desktop_dmd_scale: 4
 
 
 
