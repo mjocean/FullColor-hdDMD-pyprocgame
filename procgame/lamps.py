@@ -228,8 +228,14 @@ class LampShow(object):
 				if tr.driver == None: # Lazily set drivers.
 					tr.resolve_driver_with_game(self.game)
 				sch = tr.next_schedule()
-				tr.driver.schedule(schedule=sch, cycle_seconds=1, now=True)
-	
+				# Thanks to Rosh
+				#
+				# http://www.pinballcontrollers.com/forum/index.php?topic=802
+				if sch==0:
+					tr.driver.disable()
+				else:
+					tr.driver.schedule(schedule=sch, cycle_seconds=1, now=True)
+
 	def restart(self):
 		"""Restart the show from the beginning."""
 		for tr in self.tracks:

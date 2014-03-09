@@ -48,6 +48,11 @@ class HDFont(object):
 			raise ValueError, "Specific font could not be found on your system.  Please install '" + fontname + "'."
 		self.pygFont = pygame.font.Font(p,size)
 
+		self.char_widths = []
+		for i in range(96):
+			self.char_widths += [ self.pygFont.size(str(chr(i+32)))[0] ]
+		self.char_size = self.pygFont.get_height()
+
 	def set_color(self, color):
 		if(self.color==(0,0,0)):
 			self.color=(1,1,1)

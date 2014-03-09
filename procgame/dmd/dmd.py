@@ -133,8 +133,11 @@ class Frame(object):
 		 	self.font_dots[x+(y*self.width)]=color
 
 	def get_font_dot(self, x, y):
-	 	#print("get_font_dot(" + str(x) + "," + str(y))
-	 	return ord(self.font_dots[x+(y*self.width)])
+		if (len(self.font_dots) == 0):
+			string = self.get_surface_string()
+			return ord(string[x+(y*self.width)])
+		else:
+			return ord(self.font_dots[x+(y*self.width)])
 
 	def fill_rect(self, x,y,w,h,c):
 		r = pygame.Rect(int(x),int(y),int(w),int(h))

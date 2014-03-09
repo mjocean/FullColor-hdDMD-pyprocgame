@@ -2,6 +2,8 @@ import time
 import pinproc
 import Queue
 from game import gameitems
+from procgame import config
+
 
 class FakePinPROC(object):
 	"""Stand-in class for :class:`pinproc.PinPROC`.  Generates DMD events."""
@@ -19,6 +21,13 @@ class FakePinPROC(object):
 	"""Frames per second at which to dispatch :attr:`pinproc.EventTypeDMDFrameDisplayed` events."""
 	
 	def __init__(self, machine_type):
+		# this short circuits the generation of 'extra' DMD events if the virtual/color DMD is used
+		use_virtual_dmd_only = config.value_for_key_path('use_virtual_dmd_only', False)
+		if(use_virtual_dmd_only==True):
+			self.get_events = self.get_events_noDMD
+		else:
+			self.frames_per_second = config.value_for_key_path('dmd_framerate', 60)
+		
 		# Instantiate 256 drivers.
 		for i in range(0, 256):
 			name = 'driver' + str(i)
@@ -46,6 +55,14 @@ class FakePinPROC(object):
 			self.last_dmd_event = now
 			events.extend([{'type':pinproc.EventTypeDMDFrameDisplayed, 'value':0}] * missed_dmd_events)
 		return events
+
+	def get_events_noDMD(self):
+		""" Get all switch events since the last time this was called. """
+		events = []
+		events.extend(self.switch_events)
+		self.switch_events = []
+		return events
+
 
 	def driver_pulse(self, number, milliseconds):
 		""" Send a pulse command to a virtual driver. """

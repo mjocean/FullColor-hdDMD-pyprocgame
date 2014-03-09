@@ -72,6 +72,8 @@ class GameController(object):
 
 	# MJO: Virtual DMD w/o h/w DMD
 	use_virtual_dmd_only = False
+	frames_per_second = 60
+
 	"""Setting this to true in the config.yaml enables a virtual DMD without physical DMD events going to the PROC"""
 
 	def __init__(self, machine_type): 
@@ -95,6 +97,7 @@ class GameController(object):
 		If that key path does not exist then this method returns an instance of :class:`pinproc.PinPROC`.
 		"""
 		self.use_virtual_dmd_only = config.value_for_key_path('use_virtual_dmd_only', False)
+		self.frames_per_second = config.value_for_key_path('dmd_framerate', 60)
 		klass_name = config.value_for_key_path('pinproc_class', 'pinproc.PinPROC')
 		klass = util.get_class(klass_name)
 		return klass(self.machine_type)
@@ -594,7 +597,6 @@ class GameController(object):
 	
 	# MJO: added to support virtual DMD only (i.e., without hardware)	
 	last_dmd_event = 0
-	frames_per_second = 60
 	def get_virtualDMDevents(self):
 		""" Get all switch and DMD events since the last time this was called. """
 		events = []
@@ -606,7 +608,7 @@ class GameController(object):
 			events.extend([{'type':pinproc.EventTypeDMDFrameDisplayed, 'value':0}] * missed_dmd_events)
 		return events
 
-	def run_loop(self, min_seconds_per_cycle=None):
+	def run_loop(self, min_seconds_per_cycle=None, fail_cb=None):
 		"""Called by the programmer to read and process switch events until interrupted."""
 		loops = 0
 		self.done = False
@@ -635,6 +637,10 @@ class GameController(object):
 					dt = time.time() - t0
 					if min_seconds_per_cycle > dt:
 						time.sleep(min_seconds_per_cycle - dt)
+		except Exception, e:
+			if(fail_cb!=None):
+				fail_cb(e)
+			raise
 		finally:
 			if loops != 0:
 				dt = time.time()-self.t0

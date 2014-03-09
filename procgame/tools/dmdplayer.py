@@ -19,11 +19,13 @@ class PlayerGame(procgame.game.BasicGame):
 		mode.layer = self.anim_layer
 		self.modes.add(mode)
 	
-	def play(self, filename, repeat):
+	def play(self, filename, repeat, hold=False, frametime=10):
 		anim = procgame.dmd.Animation().load(filename)
 		self.anim_layer.frames = anim.frames
 		self.anim_layer.repeat = repeat
-		if not repeat:
+		self.anim_layer.hold = hold
+		self.anim_layer.frame_time = frametime
+		if not repeat and not hold:
 			self.anim_layer.add_frame_listener(-1, self.end_of_animation)
 	
 	def end_of_animation(self):
@@ -33,6 +35,8 @@ class PlayerGame(procgame.game.BasicGame):
 def tool_populate_options(parser):
 	parser.add_option('-m', '--machine-type', action='store', help='wpc, wpc95, stermSAM, sternWhitestar or custom (default)')
 	parser.add_option('-r', '--repeat', action='store_true', help='Repeat the animation indefinitely')
+	parser.add_option('-l', '--hold', action='store_true', help='Hold the last frame')
+	parser.add_option('-f', '--frametime', type="int", dest='frametime', default=10, help='set the frame time')
 
 def tool_get_usage():
     return """<file.dmd>"""
@@ -47,8 +51,8 @@ def tool_run(options, args):
 		machine_type = pinproc.MachineTypeCustom
 	
 	game = PlayerGame(machine_type=machine_type)
-	
-	game.play(filename=args[0], repeat=options.repeat)
+
+	game.play(filename=args[0], repeat=options.repeat, hold=options.hold, frametime = options.frametime)
 	
 	game.run_loop()
 	del game
