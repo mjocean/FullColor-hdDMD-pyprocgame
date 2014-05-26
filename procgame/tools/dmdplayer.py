@@ -12,8 +12,9 @@ class PlayerGame(procgame.game.BasicGame):
 	
 	anim_layer = None
 	
-	def __init__(self, machine_type):
+	def __init__(self, machine_type, width=128, height=32):
 		super(PlayerGame, self).__init__(machine_type)
+		self.dmd = procgame.dmd.DisplayController(self, width=width, height=height, message_font=procgame.dmd.font.font_named('Font07x5.dmd'))
 		self.anim_layer = procgame.dmd.AnimatedLayer()
 		mode = procgame.game.Mode(game=self, priority=1)
 		mode.layer = self.anim_layer
@@ -37,6 +38,7 @@ def tool_populate_options(parser):
 	parser.add_option('-r', '--repeat', action='store_true', help='Repeat the animation indefinitely')
 	parser.add_option('-l', '--hold', action='store_true', help='Hold the last frame')
 	parser.add_option('-f', '--frametime', type="int", dest='frametime', default=10, help='set the frame time')
+	parser.add_option('-s', '--size', type="int", dest='size', nargs=2, metavar="WIDTH HEIGHT", default=(128,32), help='set the WIDTH and HEIGHT of the player (in dots)')
 
 def tool_get_usage():
     return """<file.dmd>"""
@@ -50,7 +52,7 @@ def tool_run(options, args):
 	else:
 		machine_type = pinproc.MachineTypeCustom
 	
-	game = PlayerGame(machine_type=machine_type)
+	game = PlayerGame(machine_type=machine_type,width=options.size[0], height=options.size[1])
 
 	game.play(filename=args[0], repeat=options.repeat, hold=options.hold, frametime = options.frametime)
 	
