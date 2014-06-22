@@ -84,6 +84,7 @@ class GameController(object):
 		self.proc.reset(1)
 		self.modes = ModeQueue(self)
 		self.t0 = time.time()
+		self.dmd_updates = 0
 	
 	def create_pinproc(self):
 		"""Instantiates and returns the class to use as the P-ROC device.
@@ -166,7 +167,6 @@ class GameController(object):
 	
 	def end_ball(self):
 		"""Called by the implementor to notify the game that the current ball has ended."""
-
 		self.ball_end_time = time.time()
 		# Calculate ball time and save it because the start time
 		# gets overwritten when the next ball starts.
@@ -608,7 +608,7 @@ class GameController(object):
 			events.extend([{'type':pinproc.EventTypeDMDFrameDisplayed, 'value':0}] * missed_dmd_events)
 		return events
 
-	def run_loop(self, min_seconds_per_cycle=None, fail_cb=None):
+	def run_loop(self, min_seconds_per_cycle=None):#, fail_cb=None):
 		"""Called by the programmer to read and process switch events until interrupted."""
 		loops = 0
 		self.done = False
@@ -637,17 +637,23 @@ class GameController(object):
 					dt = time.time() - t0
 					if min_seconds_per_cycle > dt:
 						time.sleep(min_seconds_per_cycle - dt)
-		except Exception, e:
-			if(fail_cb!=None):
-				fail_cb(e)
-			raise
+		# except Exception, e:
+		# 	if(fail_cb!=None):
+		# 		fail_cb(e)
+		# 	raise
 		finally:
 			if loops != 0:
 				dt = time.time()-self.t0
-				print "\nOverall loop rate: %0.3fHz\n" % (loops/dt)
-				#unload OSC server
-				try:
-					self.osc.OSC_shutdown()
-				except:
-					pass
+				self.logger.info("\nTotal Time: %0.3f Seconds",dt)
+				self.logger.info("Loops: " + str(loops))
+				self.logger.info("Overall loop rate: %0.3fHz", (loops/dt))
+				self.logger.info("DMD Updates: %s", str(self.dmd_updates))
+				self.logger.info("Frame rate: %0.3fFPS", (self.dmd_updates/dt))
+				self.logger.info("loops between dmd updates: %0.3f", (loops/self.dmd_updates))
+
+			#unload OSC server
+			try:
+				self.osc.OSC_shutdown()
+			except:
+				pass
 					

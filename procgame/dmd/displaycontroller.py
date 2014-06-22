@@ -59,9 +59,12 @@ class DisplayController(object):
 		to apply that layer's next frame to the frame in progress.
 		
 		The resulting frame is sent to the :attr:`frame_handlers` and then returned from this method."""
+		#lets increment a counter on how many dmd updates we have done
+		self.game.dmd_updates+=1
+        
 		layers = []
 		for mode in self.game.modes.modes:
-			if hasattr(mode, 'layer') and mode.layer != None:
+			if hasattr(mode, 'layer') and mode.layer != None and mode.layer.enabled:
 				layers.append(mode.layer)
 				if mode.layer.opaque:
 					break # if we have an opaque layer we don't render any lower layers

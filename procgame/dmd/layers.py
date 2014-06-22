@@ -6,10 +6,11 @@ class FrameLayer(Layer):
 	blink_frames = None # Number of frame times to turn frame on/off
 	blink_frames_counter = 0
 	frame_old = None
-	
+
 	def __init__(self, opaque=False, frame=None):
 		super(FrameLayer, self).__init__(opaque)
 		self.frame = frame
+
 	def next_frame(self):
 		if self.blink_frames > 0:
 			if self.blink_frames_counter == 0:
@@ -240,6 +241,7 @@ class ScriptedLayer(Layer):
 		self.on_complete = None
 		self.is_new_script_item = True
 		self.last_layer = None
+		self.on_next = None
 	
 	def next_frame(self):
 		# This assumes looping.  TODO: Add code to not loop!
@@ -275,7 +277,10 @@ class ScriptedLayer(Layer):
 				self.script_index = 0
 				if self.on_complete != None:
 					self.on_complete()
-			
+			else:
+				if self.on_next != None:
+					self.on_next()
+					
 			# Assign the new script item:
 			script_item = self.script[self.script_index]
 			self.frame_start_time = time.time()
@@ -299,7 +304,7 @@ class ScriptedLayer(Layer):
 			
 			# If the layer is opaque we can composite the last layer onto our buffer
 			# first.  This will allow us to do transitions between script 'frames'.
-			if self.last_layer and self.opaque:
+			if self.last_layer and (self.opaque or layer.transition):
 				self.last_layer.composite_next(self.buffer)
 			
 			layer.composite_next(self.buffer)
@@ -363,7 +368,7 @@ class GroupedLayer(Layer):
 
 class PanningLayer(Layer):
 	"""Pans a frame about on a 128x32 buffer, bouncing when it reaches the boundaries."""
-	def __init__(self, width, height, frame, origin, translate, bounce=True):
+	def __init__(self, width, height, frame, origin, translate, bounce=True, numFramesDrawnBetweenMovementUpdate=3):
 		super(PanningLayer, self).__init__()
 		self.buffer = Frame(width, height)
 		self.frame = frame
@@ -371,6 +376,7 @@ class PanningLayer(Layer):
 		self.original_origin = origin
 		self.translate = translate
 		self.bounce = bounce
+		self.holdFrames = numFramesDrawnBetweenMovementUpdate
 		self.tick = 0
 		# Make sure the translate value doesn't cause us to do any strange movements:
 		if width == frame.width:
@@ -380,16 +386,153 @@ class PanningLayer(Layer):
 
 	def reset(self):
 		self.origin = self.original_origin
-	
+		self.buffer.clear()
+
 	def next_frame(self):
 		self.tick += 1
-		if (self.tick % 6) != 0:
+		if (self.tick % self.holdFrames) != 0:
 			return self.buffer
 		Frame.copy_rect(dst=self.buffer, dst_x=0, dst_y=0, src=self.frame, src_x=self.origin[0], src_y=self.origin[1], width=self.buffer.width, height=self.buffer.height)
-		if self.bounce and (self.origin[0] + self.buffer.width + self.translate[0] > self.frame.width) or (self.origin[0] + self.translate[0] < 0):
+		if self.bounce and ((self.origin[0] + self.buffer.width + self.translate[0] > self.frame.width) or (self.origin[0] + self.translate[0] < 0)):
 			self.translate = (self.translate[0] * -1, self.translate[1])
-		if self.bounce and (self.origin[1] + self.buffer.height + self.translate[1] > self.frame.height) or (self.origin[1] + self.translate[1] < 0):
+		if self.bounce and ((self.origin[1] + self.buffer.height + self.translate[1] > self.frame.height) or (self.origin[1] + self.translate[1] < 0)):
 			self.translate = (self.translate[0], self.translate[1] * -1)
 		self.origin = (self.origin[0] + self.translate[0], self.origin[1] + self.translate[1])
 		return self.buffer
 
+class HDTextLayer(TextLayer):
+	"""Layer that displays text."""
+	
+	fill_color = None
+	line_color = None
+	interior_color = None
+	line_width = 0
+
+	# def __init__(self, x, y, font, justify="left", opaque=False, width=192, height=96, fill_color=None):
+
+	def __init__(self, x, y, font, justify="left", vert_justify=None, opaque=False, width=192, height=96, line_color=None, line_width=2, interior_color=None, fill_color=None):
+		super(HDTextLayer, self).__init__(x,y,font,justify,opaque,width,height,fill_color)
+		# self.x = x
+		# self.y = y
+		# self.width = width
+		# self.height = height
+		# self.fill_color = fill_color
+		self.interior_color = interior_color
+		self.line_color = line_color
+		self.line_width = line_width
+		self.Vjustify = vert_justify
+		# self.font = font
+		# self.started_at = None
+		# self.seconds = None # Number of seconds to show the text for
+		# self.frame = None # Frame that text is rendered into.
+		# self.frame_old = None
+		# self.justify = justify
+		# self.blink_frames = None # Number of frame times to turn frame on/off
+		# self.blink_frames_counter = 0
+		# if(line_width==None):
+		#     self.line_color = font.default_line_color
+		#     self.line_width = font.default_line_width        
+		# else:
+		#     self.line_color = line_color
+		#     self.line_width = line_width
+
+		# if(interior_color==None):
+		#     self.interior_color = font.default_interior_color
+		# else:
+		#     self.interior_color = interior_color
+
+
+	def set_text(self, text, seconds=None, blink_frames=None):
+		"""Displays the given message for the given number of seconds."""
+		self.started_at = None
+		self.seconds = seconds
+		self.blink_frames = blink_frames
+		self.blink_frames_counter = self.blink_frames
+		if text == None:
+			self.frame = None
+		else:
+			(wOfText, hOfText) = self.font.size(text)
+			(wOfText , hOfText) = (wOfText+(2*self.line_width), hOfText+(2*self.line_width))
+			if(wOfText>self.width):
+				self.width = wOfText
+			if(hOfText>self.height):
+				self.height = hOfText
+			x, y = 0, 0
+			rectx, recty = 0, 0
+			x_offset, y_offset = 0,0
+
+			if self.justify == 'left':
+				x_offset = 0
+			elif self.justify == 'right':
+				x_offset = -1
+			elif self.justify == 'center':
+				x_offset = -0.5
+
+			if self.Vjustify == 'bottom':
+				y_offset = -1
+			elif self.Vjustify == 'center':
+				y_offset = -0.5
+
+			if self.fill_color != None:
+				(x,y) = (self.width*x_offset, self.height*y_offset)
+				self.set_target_position(x, y)
+
+				self.frame = Frame(width=self.width, height=self.height)
+				###self.frame.fill_rect(self.x, self.y, self.width, self.height, self.fill_color)
+				self.frame.fill_rect(0, 0, self.width, self.height, self.fill_color)
+				#self.font.drawHD(self.frame, text, self.x + x, self.y + y, self.line_color, self.line_width, self.interior_color, self.fill_color)
+				# [0..self.width]
+				# left --> 0
+				# middle --> self.width/2 - woftext/2
+				# right = self.width + (-wOfText)
+				(x, y) = ((wOfText-self.width)*x_offset, (hOfText-self.height)*y_offset)
+								
+				self.font.drawHD(self.frame, text, x, y, self.line_color, self.line_width, self.interior_color, self.fill_color)
+				(self.target_x_offset, self.target_y_offset) = (self.x,self.y)
+			else:
+				(x, y) = (wOfText*x_offset, hOfText*y_offset)
+				self.set_target_position(self.x, self.y)
+				self.frame = Frame(wOfText, hOfText)
+				self.font.drawHD(self.frame, text, 0, 0, self.line_color, self.line_width, self.interior_color, self.fill_color)
+				(self.target_x_offset, self.target_y_offset) = (x,y)
+				self.composite_op = "blacksrc"
+				# self.set_target_position(x, y)
+
+			#self.set_target_position(self.x, self.y)
+			#(w, h) = self.font.size(text)
+			#self.font.drawHD(self.frame, text, 0, 0)
+			#self.font.drawHD(self.frame, text, x, y, self.line_color, self.line_width, self.interior_color, self.fill_color)
+
+			#(self.target_x_offset, self.target_y_offset) = (x,y)
+
+		return self
+
+class AnimatedHDTextLayer(GroupedLayer):
+	"""Layer that displays text."""
+
+	text_layer = None
+
+	def __init__(self, x, y, font, justify="left", line_color=None, line_width=2, lyrAnimation=None, width=480, height=240):
+		super(AnimatedHDTextLayer, self).__init__(width, height, None)
+		
+		lyrText = HDTextLayer(x, y, font, justify, line_color=line_color, line_width=line_width, interior_color=(0,255,0), fill_color=(255,0,255))
+		self.text_layer = lyrText
+
+		#self.info_layer_multiplier.composite_op="blacksrc"
+
+		f = Frame(width, height)
+		f.fill_rect(0, 0, width, height, (255,0,255))
+		bg = FrameLayer(frame=f,opaque=False)
+
+		composite_layer = GroupedLayer(480, 240, [bg, lyrText])
+		composite_layer.opaque=False
+		composite_layer.composite_op = "greensrc"
+
+		final_layer = GroupedLayer(480,240,[lyrAnimation, composite_layer])
+		final_layer.composite_op = "magentasrc"
+
+		self.layers = [final_layer]
+		# self.composite_op = "magentasrc"
+
+	def set_text(self, text, seconds=None, blink_frames=None):
+		self.text_layer.set_text(text,seconds,blink_frames)

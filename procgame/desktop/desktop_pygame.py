@@ -10,6 +10,7 @@ import math
 import copy
 import ctypes
 from .. import config
+import os
 
 from procgame.events import EventManager
 
@@ -41,6 +42,9 @@ class Desktop():
 		self.i = 0
 		self.key_events = []
 		if 'pygame' in globals():
+			self.window_offset_x = config.value_for_key_path(keypath='dmd_offset_x', default=50)
+			self.window_offset_y = config.value_for_key_path(keypath='dmd_offset_y', default=50)
+
 			self.dots_w = config.value_for_key_path(keypath='dmd_dots_w', default=128)
 			self.dots_h = config.value_for_key_path(keypath='dmd_dots_h', default=32)
 			self.screen_scale = config.value_for_key_path(keypath='desktop_dmd_scale', default=2)
@@ -57,14 +61,17 @@ class Desktop():
 
 		if(self.dot_filter==True):
 			grid_32x32segment = pygame.image.load(dmd_grid_path + 'dmdgrid32x32.png')
+			acr = math.ceil(self.dots_w/float(32))
+			down = math.ceil(self.dots_h/float(32))
 			print("building a grid of " + str(self.dots_w) + "x" + str(self.dots_h))
-			for step_w in range(0,self.dots_w/32):
-				for step_h in range(0,self.dots_h/32):
-					# print("--stamping at " + str(step_w) + "x" + str(step_h))
+			print("building a grid of " + str(acr) + "x" + str(down))
+			for step_w in range(0,acr):
+				for step_h in range(0,down):
+					print("--stamping at " + str(step_w) + "x" + str(step_h))
 					self.grid_image.blit(grid_32x32segment,(step_w*320,step_h*320))
 			#self.grid_image = pygame.image.load('./dmdgrid.png')
 			#self.grid_image = pygame.image.load('./dmdgrid256x128.png')
-			self.grid_image = pygame.transform.scale(self.grid_image, self.screen.get_size()).convert_alpha()
+			self.grid_image = pygame.transform.smoothscale(self.grid_image, self.screen.get_size()).convert_alpha()
 		else:
 			self.draw = self.draw_no_dot_effect
 
@@ -123,8 +130,10 @@ class Desktop():
 	# you'll need to change your displayController to width=192, height=96 and the same for all layers created
 
 	def setup_window(self):
+		os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (self.window_offset_x,self.window_offset_y)
 		pygame.init()
-		#self.screen = pygame.display.set_mode((128*self.screen_multiplier, 32*self.screen_multiplier))
+		pygame.mouse.set_visible(False)
+        #self.screen = pygame.display.set_mode((128*self.screen_multiplier, 32*self.screen_multiplier))
 		# self.screen = pygame.display.set_mode((self.dots_w*self.screen_scale, self.dots_h*self.screen_scale),pygame.OPENGL|pygame.FULLSCREEN|pygame.DOUBLEBUF)
 		# self.screen = pygame.display.set_mode((self.dots_w*self.screen_scale, self.dots_h*self.screen_scale),pygame.HWPALETTE|pygame.FULLSCREEN|pygame.DOUBLEBUF)
 		if(self.fullscreen==True):

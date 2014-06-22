@@ -45,9 +45,27 @@ class Frame(object):
 			special_flags = pygame.BLEND_ADD
 		elif(op == "sub"):
 			special_flags = pygame.BLEND_SUB
+		elif(op == "mult"):
+			special_flags = pygame.BLEND_MULT
+		elif(op == "min"):
+			special_flags = pygame.BLEND_MIN
+		elif(op == "max"):
+			special_flags = pygame.BLEND_MAX
+		elif(op=="rgb_add"):
+			special_flags = pygame.BLEND_RGB_ADD
+		elif(op == "rgb_sub"):
+			special_flags = pygame.BLEND_RGB_SUB
+		elif(op == "rgb_mult"):
+			special_flags = pygame.BLEND_RGB_MULT
 		elif(op == "blacksrc"):
 			special_flags = 0;
 			src.pySurface.set_colorkey((0,0,0))
+		elif(op == "magentasrc"):
+			special_flags = 0;
+			src.pySurface.set_colorkey((255,0,255))
+		elif(op == "greensrc"):
+			special_flags = 0;
+			src.pySurface.set_colorkey((0,255,0))
 		elif(op == "alpha"):
 			special_flags = 0
 			# TODO: THIS...
@@ -73,9 +91,24 @@ class Frame(object):
 		"""Returns a copy of itself."""
 		frame = Frame(self.width, self.height)
 		frame.pySurface = self.pySurface.copy()
+		#frame.pySurface.blit(self.pySurface, (0,0,self.width,self.height), (0,0,self.width,self.height), special_flags = 0)
+		
 		#frame.set_data(self.get_data())
 		return frame
 	
+	def scale(self, percentage):
+		# resizes a frame...
+		new_w = int(percentage * self.width)
+		new_h = int(percentage * self.height)
+		#print(new_w, new_h)
+		self.width = new_w
+		self.height = new_h
+		newSurf = pygame.surface.Surface((new_w,new_h))
+		pygame.transform.scale(self.pySurface,(new_w,new_h), newSurf)
+		del self.pySurface
+		self.pySurface = newSurf
+		self.font_dots = []
+
 	def ascii(self):
 		"""Returns an ASCII representation of itself."""
 		# output = ''
@@ -141,6 +174,8 @@ class Frame(object):
 
 	def fill_rect(self, x,y,w,h,c):
 		r = pygame.Rect(int(x),int(y),int(w),int(h))
+		# if(len(c)==4):
+		# 	self.pySurface = self.pySurface.convert_alpha(self.pySurface)
 		self.pySurface.fill(c,r)
 
 
@@ -246,6 +281,12 @@ class Layer(object):
 		super(Layer, self).__init__()
 		self.opaque = opaque
 		self.set_target_position(0, 0)
+
+	def scale(self, amount):
+		if(self.frames is None):
+			self.frame.scale(amount)
+		else:
+			for f in self.frames: f.scale(amount)
 
 	def reset(self):
 		# To be overridden

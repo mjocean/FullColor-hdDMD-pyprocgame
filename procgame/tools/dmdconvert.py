@@ -120,5 +120,9 @@ def tool_get_usage():
 def tool_run(options, args):
 	if len(args) < 2:
 		return False
+	import pygame
+	pygame.init()
+	pygame.display.set_mode((128, 32))
+
 	image_to_dmd(src_filenames=args[0:-1], dst_filename=args[-1])
 	return True

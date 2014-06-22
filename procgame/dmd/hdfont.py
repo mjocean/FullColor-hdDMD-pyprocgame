@@ -15,6 +15,8 @@ AnchorSE = AnchorS | AnchorE
 AnchorSW = AnchorS | AnchorW
 AnchorCenter = 0
 
+
+
 class HDFont(object):
 	"""Object wrapper for a PyGame font.
 	
@@ -34,9 +36,6 @@ class HDFont(object):
 	
 	pygFont = None
 
-	bitmap = None
-
-	color = (255,255,255)
 
 	def __init__(self, fontname, size):
 		super(HDFont, self).__init__()
@@ -53,23 +52,68 @@ class HDFont(object):
 			self.char_widths += [ self.pygFont.size(str(chr(i+32)))[0] ]
 		self.char_size = self.pygFont.get_height()
 
-	def set_color(self, color):
-		if(self.color==(0,0,0)):
-			self.color=(1,1,1)
-		else:
-			self.color=color
-		return self
 
-	def draw(self, frame, text, x, y):
+	def textHollow(self, message, col_line, col_interior, line_width, col_bg):
+		base = self.pygFont.render(message, False, col_line, col_bg)
+		size = (base.get_width() + line_width, base.get_height() + line_width)
+		
+		img = pygame.Surface(size, 16)
+
+		img.fill(col_bg)
+		base.set_colorkey(0)
+
+		if(line_width>0):
+			img.blit(base, (0, 0))
+			img.blit(base, (line_width, 0))
+			img.blit(base, (0, line_width))
+			img.blit(base, (line_width, line_width))
+		base.set_colorkey(0)
+		base.set_palette_at(1, col_interior)
+		img.blit(base, (line_width/2, line_width/2))
+		img.set_colorkey(None)
+		return img.convert()
+
+
+	def drawHD(self, frame, text, x, y, line_color, line_width, interior_color, fill_color):
 		"""Uses this font's characters to draw the given string at the given position."""
-		surf = self.pygFont.render(text,True,self.color,(0,0,0))
+		#t = self.pygFont.render(text,False,(255,0,255),(0,0,0))
+		#surf = self.pygFont.render(text,False,self.color,(0,0,0))
+		if(text == ""):
+			return x
+
+		if(fill_color==None):
+			fill_color=(0,0,0)
+
+		surf = self.textHollow(text,line_color, interior_color, 2*line_width, fill_color)
 		(w,h) = surf.get_size()
+
+		tmp = Frame(w,h)
+		tmp.pySurface = surf
+		Frame.copy_rect(dst=frame, dst_x=x, dst_y=y, src=tmp, src_x=0, src_y=0, width=w, height=h, op=self.composite_op)
+
+		#Frame.copy_rect(dst=frame, dst_x=x, dst_y=y, src=self.bitmap, src_x=char_x, src_y=char_y, width=width, height=self.char_size, op=self.composite_op)
+			
+		return x
+
+
+	def draw(self, frame, text, x, y, color = None):
+		"""Uses this font's characters to draw the given string at the given position."""
+		#t = self.pygFont.render(text,False,(255,0,255),(0,0,0))
+		if(color is None):
+			color=(255,255,255)
+
+		surf = self.pygFont.render(text,False,color,(0,0,0))
+		(w,h) = surf.get_size()
+		
+		#surf = pygame.surface.Surface((w, h))
+		#surf.blit(t,(0,0))
+		#surf.blit(t2,(2,2))
+		
 		tmp = Frame(w,h)
 		tmp.pySurface = surf
 		tmp.composite_op = "blacksrc"
 		Frame.copy_rect(dst=frame, dst_x=x, dst_y=y, src=tmp, src_x=0, src_y=0, width=w, height=h, op=self.composite_op)
 		#Frame.copy_rect(dst=frame, dst_x=x, dst_y=y, src=self.bitmap, src_x=char_x, src_y=char_y, width=width, height=self.char_size, op=self.composite_op)
-			
 		return x
 	
 	def size(self, text):
@@ -124,11 +168,11 @@ When this module is initialized the pyprocgame global configuration (:attr:`proc
 def init_hdfont_path():
     global hdfont_path
     try:
-        value = config.value_for_key_path('font_path')
+        value = config.value_for_key_path('hdfont_path')
         if issubclass(type(value), list):
             hdfont_path.extend(map(os.path.expanduser, value))
         elif issubclass(type(value), str):
-            font_path.append(os.path.expanduser(value))
+            hdfont_path.append(os.path.expanduser(value))
         elif value == None:
             print('WARNING no font_path set in %s!' % (config.path))
         else:
@@ -152,3 +196,5 @@ def hdfont_named(name, size):
 	font = HDFont(name,size)
 	__hdfont_cache[cname] = font
 	return font
+
+

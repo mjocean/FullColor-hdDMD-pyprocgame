@@ -186,7 +186,7 @@ class Animation(object):
 			# Iterate over the provided paths:
 			for path in paths:
 				if (os.path.isfile(path.rstrip('.zip'))):
-					print("Using unzipped DMD for '" + path + "'")
+					#print("Using unzipped DMD for '" + path + "'")
 					path = path.rstrip('.zip')
 				with open(path, 'rb') as f:
 					# Opening from disk.  It may be a DMD, or it may be another format.
@@ -217,7 +217,7 @@ class Animation(object):
 		
 			# Finally store the data in the cache:	
 			if animation_cache:
-				print "Storing in the cache: ", key_path
+				#print "Storing in the cache: ", key_path
 				animation_cache.set_at_path(key_path, dmd_data)
 					
 			# print('Loaded "%s" from disk in %0.3fs', key_path, time.time()-t0)
@@ -282,7 +282,7 @@ class Animation(object):
 		src = Image.open(f)
 
 		(w, h) = src.size
-		print ("conversion of image, sized " + str(w) + "," + str(h))
+		# print ("conversion of image, sized " + str(w) + "," + str(h))
 
 		if len(self.frames) > 0 and (w != self.width or h != self.height):
 			raise ValueError, "Image sizes must be uniform!  Anim is %dx%d, image is %dx%d" % (w, h, self.width, self.height)
@@ -361,12 +361,12 @@ class Animation(object):
 		self.height = struct.unpack("I", f.read(4))[0]
 		if(dmd_style==0):
 			if file_length != 16 + self.width * self.height * frame_count:
-				print(f)
-				print("expected size = " + str(16 + self.width * self.height * frame_count) + " got " + str(file_length))
+				logging.getLogger('game.dmdcache').warning(f)
+				logging.getLogger('game.dmdcache').warning("expected size = {%d} got {%d}", (16 + self.width * self.height * frame_count), (file_length))
 				raise ValueError, "File size inconsistent with original DMD format header information.  Old or incompatible file format?"
 		elif(dmd_style==1):
 			if file_length != 16 + self.width * self.height * frame_count * 3:
-				print(f)
+				logging.getLogger('game.dmdcache').warning(f)
 				raise ValueError, "File size inconsistent with true-color DMD format header information. Old or incompatible file format?"
 
 		for frame_index in range(frame_count):
